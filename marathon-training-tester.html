@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marathon Training Progression Tester</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0d0d0d;
+            --bg-card: #1a1a1a;
+            --accent-orange: #ff6b35;
+            --accent-yellow: #f7c948;
+            --text-primary: #fafafa;
+            --text-secondary: #a0a0a0;
+            --border-subtle: #2a2a2a;
+            --success-green: #4ade80;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Source Sans 3', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+            background-image: 
+                radial-gradient(ellipse at 20% 0%, rgba(255, 107, 53, 0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 100%, rgba(247, 201, 72, 0.1) 0%, transparent 50%);
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 48px;
+        }
+
+        h1 {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 3.5rem;
+            letter-spacing: 0.05em;
+            background: linear-gradient(135deg, var(--accent-orange), var(--accent-yellow));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            margin-top: 8px;
+        }
+
+        .goal-badge {
+            display: inline-block;
+            margin-top: 16px;
+            padding: 8px 20px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 100px;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .goal-badge strong {
+            color: var(--accent-yellow);
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            padding: 32px;
+            margin-bottom: 24px;
+        }
+
+        .card-title {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.5rem;
+            letter-spacing: 0.05em;
+            color: var(--accent-orange);
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .card-title::before {
+            content: '';
+            display: block;
+            width: 4px;
+            height: 24px;
+            background: linear-gradient(180deg, var(--accent-orange), var(--accent-yellow));
+            border-radius: 2px;
+        }
+
+        .input-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        input {
+            background: var(--bg-dark);
+            border: 1px solid var(--border-subtle);
+            border-radius: 8px;
+            padding: 14px 16px;
+            font-size: 1.1rem;
+            color: var(--text-primary);
+            font-family: 'Source Sans 3', sans-serif;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--accent-orange);
+            box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.2);
+        }
+
+        input::placeholder {
+            color: #555;
+        }
+
+        button {
+            background: linear-gradient(135deg, var(--accent-orange), #ff8c5a);
+            border: none;
+            border-radius: 8px;
+            padding: 16px 32px;
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--bg-dark);
+            cursor: pointer;
+            font-family: 'Bebas Neue', sans-serif;
+            letter-spacing: 0.1em;
+            font-size: 1.2rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 8px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(255, 107, 53, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        .stat-box {
+            background: var(--bg-dark);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 2rem;
+            color: var(--accent-yellow);
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-top: 4px;
+        }
+
+        .progression-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .progression-table th {
+            text-align: left;
+            padding: 12px 16px;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .progression-table td {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-subtle);
+            font-size: 0.95rem;
+        }
+
+        .progression-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .progression-table tr:hover {
+            background: rgba(255, 107, 53, 0.05);
+        }
+
+        .progression-table .week-num {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.2rem;
+            color: var(--accent-orange);
+        }
+
+        .progression-table .date {
+            color: var(--text-secondary);
+        }
+
+        .progression-table .distance {
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .progression-table .growth {
+            color: var(--success-green);
+            font-size: 0.85rem;
+        }
+
+        .progression-table .duration {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .final-row {
+            background: linear-gradient(90deg, rgba(255, 107, 53, 0.15), rgba(247, 201, 72, 0.1)) !important;
+        }
+
+        .final-row .week-num {
+            color: var(--accent-yellow);
+        }
+
+        .final-row .distance {
+            color: var(--accent-yellow);
+            font-size: 1.1rem;
+        }
+
+        #results {
+            display: none;
+        }
+
+        #results.visible {
+            display: block;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .progress-bar-container {
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border-subtle);
+        }
+
+        .progress-bar-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: var(--bg-dark);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-orange), var(--accent-yellow));
+            border-radius: 4px;
+            transition: width 0.6s ease-out;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 16px;
+            opacity: 0.3;
+        }
+
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 2.5rem;
+            }
+            
+            .card {
+                padding: 24px;
+            }
+            
+            .stat-value {
+                font-size: 1.6rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Run Fiercely</h1>
+            <p class="subtitle">Marathon Training Progression Calculator</p>
+            <div class="goal-badge">
+                Goal: <strong>22 miles</strong> by <strong>March 21, 2026</strong>
+            </div>
+        </header>
+
+        <div class="card">
+            <h2 class="card-title">Last Long Run (139 HR)</h2>
+            <div class="input-grid">
+                <div class="input-group">
+                    <label for="duration">Duration (minutes)</label>
+                    <input type="number" id="duration" placeholder="e.g., 75" step="1" min="1">
+                </div>
+                <div class="input-group">
+                    <label for="distance">Distance (miles)</label>
+                    <input type="number" id="distance" placeholder="e.g., 8.5" step="0.1" min="0.1">
+                </div>
+                <div class="input-group">
+                    <label for="simDate">Simulate Today (optional)</label>
+                    <input type="date" id="simDate">
+                </div>
+            </div>
+            <button onclick="calculate()">Calculate Progression</button>
+        </div>
+
+        <div id="results">
+            <div class="card">
+                <h2 class="card-title">Training Overview</h2>
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <div class="stat-value" id="statPace">--</div>
+                        <div class="stat-label">Avg Pace (min/mi)</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="statGoalDuration">--</div>
+                        <div class="stat-label">22mi Duration</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="statWeeks">--</div>
+                        <div class="stat-label">Saturdays Left</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="statGrowth">--</div>
+                        <div class="stat-label">Weekly Growth</div>
+                    </div>
+                </div>
+
+                <div class="progress-bar-container">
+                    <div class="progress-bar-label">
+                        <span>Starting: <span id="startDist">--</span> mi</span>
+                        <span>Goal: 22 mi</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-bar-fill" id="progressFill" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 class="card-title">Weekly Progression</h2>
+                <table class="progression-table">
+                    <thead>
+                        <tr>
+                            <th>Week</th>
+                            <th>Date</th>
+                            <th>Target Distance</th>
+                            <th>Est. Duration</th>
+                            <th>Growth</th>
+                        </tr>
+                    </thead>
+                    <tbody id="progressionBody">
+                        <tr>
+                            <td colspan="5" class="empty-state">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                                </svg>
+                                <p>Enter your last run data to see the progression</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Set default simDate to today
+        document.getElementById('simDate').valueAsDate = new Date();
+
+        function getSaturdays(startDate, endDate) {
+            const saturdays = [];
+            const current = new Date(startDate);
+            
+            // Move to next Saturday if not already Saturday
+            const dayOfWeek = current.getDay();
+            const daysUntilSaturday = (6 - dayOfWeek + 7) % 7;
+            if (daysUntilSaturday > 0) {
+                current.setDate(current.getDate() + daysUntilSaturday);
+            }
+            
+            // Collect all Saturdays up to and including endDate
+            while (current <= endDate) {
+                saturdays.push(new Date(current));
+                current.setDate(current.getDate() + 7);
+            }
+            
+            return saturdays;
+        }
+
+        function formatDate(date) {
+            return date.toLocaleDateString('en-US', { 
+                month: 'short', 
+                day: 'numeric', 
+                year: 'numeric' 
+            });
+        }
+
+        function formatDuration(minutes) {
+            const hours = Math.floor(minutes / 60);
+            const mins = Math.round(minutes % 60);
+            if (hours > 0) {
+                return `${hours}h ${mins}m`;
+            }
+            return `${mins}m`;
+        }
+
+        function formatPace(minsPerMile) {
+            const mins = Math.floor(minsPerMile);
+            const secs = Math.round((minsPerMile - mins) * 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function calculate() {
+            const duration = parseFloat(document.getElementById('duration').value);
+            const distance = parseFloat(document.getElementById('distance').value);
+            const simDateInput = document.getElementById('simDate').value;
+
+            if (!duration || !distance || duration <= 0 || distance <= 0) {
+                alert('Please enter valid duration and distance values.');
+                return;
+            }
+
+            // Use simulated date or today
+            const today = simDateInput ? new Date(simDateInput + 'T12:00:00') : new Date();
+            
+            // Goal date: March 21, 2026
+            const goalDate = new Date('2026-03-21T12:00:00');
+
+            if (today >= goalDate) {
+                alert('The simulated date must be before March 21, 2026.');
+                return;
+            }
+
+            // Calculate pace (minutes per mile)
+            const pace = duration / distance;
+
+            // Calculate goal duration for 22 miles
+            const goalDistance = 22;
+            const goalDuration = pace * goalDistance;
+
+            // Get all Saturdays between today and goal date
+            const saturdays = getSaturdays(today, goalDate);
+            const numWeeks = saturdays.length;
+
+            if (numWeeks < 1) {
+                alert('Not enough Saturdays remaining before the goal date.');
+                return;
+            }
+
+            // Calculate weekly growth rate for exponential progression
+            // finalDistance = startDistance * (1 + rate)^weeks
+            // rate = (finalDistance / startDistance)^(1/weeks) - 1
+            const growthRate = Math.pow(goalDistance / distance, 1 / numWeeks) - 1;
+
+            // Update stats
+            document.getElementById('statPace').textContent = formatPace(pace);
+            document.getElementById('statGoalDuration').textContent = formatDuration(goalDuration);
+            document.getElementById('statWeeks').textContent = numWeeks;
+            document.getElementById('statGrowth').textContent = (growthRate * 100).toFixed(1) + '%';
+            document.getElementById('startDist').textContent = distance.toFixed(1);
+
+            // Update progress bar
+            const progressPercent = (distance / goalDistance) * 100;
+            document.getElementById('progressFill').style.width = progressPercent + '%';
+
+            // Generate progression table
+            const tbody = document.getElementById('progressionBody');
+            tbody.innerHTML = '';
+
+            let currentDistance = distance;
+            for (let i = 0; i < numWeeks; i++) {
+                const isLast = i === numWeeks - 1;
+                const weekDistance = isLast ? goalDistance : currentDistance * (1 + growthRate);
+                const weekDuration = pace * weekDistance;
+                const growthFromStart = ((weekDistance / distance) - 1) * 100;
+
+                const row = document.createElement('tr');
+                if (isLast) row.classList.add('final-row');
+
+                row.innerHTML = `
+                    <td class="week-num">${isLast ? 'FINAL' : i + 1}</td>
+                    <td class="date">${formatDate(saturdays[i])}</td>
+                    <td class="distance">${weekDistance.toFixed(1)} mi</td>
+                    <td class="duration">${formatDuration(weekDuration)}</td>
+                    <td class="growth">${i === 0 ? '—' : '+' + growthFromStart.toFixed(0) + '%'}</td>
+                `;
+
+                tbody.appendChild(row);
+                currentDistance = weekDistance;
+            }
+
+            // Show results
+            document.getElementById('results').classList.add('visible');
+        }
+
+        // Allow Enter key to trigger calculation
+        document.querySelectorAll('input').forEach(input => {
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') calculate();
+            });
+        });
+    </script>
+</body>
+</html>
+
+
