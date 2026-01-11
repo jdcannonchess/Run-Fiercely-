@@ -22,6 +22,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Delete
@@ -33,6 +34,7 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Terrain
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -111,7 +113,11 @@ fun RunListScreen(
     val runs by viewModel.runs.collectAsState()
     val allRuns by viewModel.allRuns.collectAsState()
     val filterTargetHR by viewModel.filterTargetHR.collectAsState()
+    val daysSinceBackup by viewModel.daysSinceBackup.collectAsState()
     val context = LocalContext.current
+    
+    // Check if backup reminder should show (never backed up OR 7+ days)
+    val shouldShowBackupReminder = daysSinceBackup == null || daysSinceBackup!! >= 7
     
     // Calculate PBs per HR group
     val pbsByRunId = remember(allRuns) {
@@ -174,7 +180,10 @@ fun RunListScreen(
             putExtra(Intent.EXTRA_STREAM, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        context.startActivity(Intent.createChooser(shareIntent, "Export Runs CSV"))
+        context.startActivity(Intent.createChooser(shareIntent, "Backup Runs"))
+        
+        // Record that a backup was initiated
+        viewModel.recordBackup()
     }
     
     // Delete confirmation dialog
@@ -348,6 +357,14 @@ fun RunListScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
+            // Backup reminder banner (shows when 7+ days since last backup)
+            if (shouldShowBackupReminder) {
+                BackupReminderBanner(
+                    daysSinceBackup = daysSinceBackup,
+                    onBackupClick = { exportCsv() }
+                )
+            }
+            
             // Prominent Add New Run Button
             Button(
                 onClick = onAddRunClick,
@@ -381,9 +398,10 @@ fun RunListScreen(
             )
             
             // Show count when filtered
-            if (filterTargetHR != null) {
+            filterTargetHR?.let { hr ->
+                val filterLabel = TreadmillRun.getDisplayString(hr)
                 Text(
-                    text = "${runs.size} run${if (runs.size != 1) "s" else ""} at $filterTargetHR bpm",
+                    text = "${runs.size} run${if (runs.size != 1) "s" else ""} in $filterLabel",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
@@ -471,6 +489,7 @@ private fun FilterSection(
 ) {
     val presetHRs = listOf(120, 130, 139, 140, 160)
     
+    // First row: All + Preset HRs + Custom search
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -505,8 +524,11 @@ private fun FilterSection(
         }
         
         // Custom search chip - same size as others
+        val isCustomHRSelected = filterTargetHR?.let { hr ->
+            !presetHRs.contains(hr) && !TreadmillRun.isCategory(hr)
+        } ?: false
         FilterChip(
-            selected = filterTargetHR != null && !presetHRs.contains(filterTargetHR),
+            selected = isCustomHRSelected,
             onClick = { onCustomSearch() },
             label = { 
                 Row(
@@ -526,6 +548,28 @@ private fun FilterSection(
                 selectedLabelColor = MaterialTheme.colorScheme.onSecondary
             )
         )
+    }
+    
+    // Second row: Category chips (Races, Gabi, Other)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        TreadmillRun.CATEGORY_OPTIONS.forEach { (value, label) ->
+            FilterChip(
+                selected = filterTargetHR == value,
+                onClick = { onFilterChange(value) },
+                label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                modifier = Modifier.weight(1f),
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = MaterialTheme.colorScheme.tertiary,
+                    selectedLabelColor = MaterialTheme.colorScheme.onTertiary
+                )
+            )
+        }
     }
 }
 
@@ -693,8 +737,8 @@ private fun RunCard(
                 )
                 StatItem(
                     icon = Icons.Default.Favorite,
-                    label = "Target HR",
-                    value = "${run.targetHeartRate} bpm",
+                    label = if (TreadmillRun.isCategory(run.targetHeartRate)) "Category" else "Target HR",
+                    value = TreadmillRun.getDisplayString(run.targetHeartRate),
                     highlight = true
                 )
                 StatItem(
@@ -782,6 +826,76 @@ private fun EmptyState(hasFilter: Boolean = false) {
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
             )
+        }
+    }
+}
+
+@Composable
+private fun BackupReminderBanner(
+    daysSinceBackup: Int?,
+    onBackupClick: () -> Unit
+) {
+    val message = when {
+        daysSinceBackup == null -> "You haven't backed up your data yet"
+        daysSinceBackup == 1 -> "Last backup was yesterday"
+        else -> "It's been $daysSinceBackup days since your last backup"
+    }
+    
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onErrorContainer,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = "Backup Reminder",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                    Text(
+                        text = message,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
+                    )
+                }
+            }
+            Button(
+                onClick = onBackupClick,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error
+                ),
+                modifier = Modifier.padding(start = 8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Backup,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Backup")
+            }
         }
     }
 }

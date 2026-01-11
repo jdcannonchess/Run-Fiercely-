@@ -422,7 +422,7 @@ fun SummaryScreen(
                 }
             }
             
-            // HR Filter Section - 6 equal width buttons (All + 5 presets) + search
+            // HR Filter Section - Row 1: All + 5 presets + search
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -461,10 +461,10 @@ fun SummaryScreen(
                 
                 // Custom HR search button
                 FilterChip(
-                    selected = customHR != null,
+                    selected = customHR != null && !TreadmillRun.isCategory(customHR ?: 0),
                     onClick = { showCustomHRDialog = true },
                     label = { 
-                        if (customHR != null) {
+                        if (customHR != null && !TreadmillRun.isCategory(customHR ?: 0)) {
                             Text("$customHR", style = MaterialTheme.typography.labelSmall)
                         } else {
                             Icon(Icons.Default.Search, null, modifier = Modifier.size(14.dp))
@@ -476,6 +476,28 @@ fun SummaryScreen(
                         selectedLabelColor = MaterialTheme.colorScheme.onSecondary
                     )
                 )
+            }
+            
+            // HR Filter Section - Row 2: Category chips
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                TreadmillRun.CATEGORY_OPTIONS.forEach { (value, label) ->
+                    FilterChip(
+                        selected = selectedHR == value && customHR == null,
+                        onClick = {
+                            selectedHR = value
+                            customHR = null
+                        },
+                        label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                        modifier = Modifier.weight(1f),
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.tertiary,
+                            selectedLabelColor = MaterialTheme.colorScheme.onTertiary
+                        )
+                    )
+                }
             }
             
             // Stats Header - Compact
@@ -747,7 +769,7 @@ private fun PBHistoryItem(rank: Int, date: String, value: String, isPB: Boolean,
         
         Column(modifier = Modifier.weight(1f)) {
             Text(date, style = MaterialTheme.typography.bodyMedium)
-            Text("$targetHR bpm", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(TreadmillRun.getDisplayString(targetHR), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         
         Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)

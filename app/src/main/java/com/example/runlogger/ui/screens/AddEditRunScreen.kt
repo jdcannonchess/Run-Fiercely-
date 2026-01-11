@@ -24,10 +24,14 @@ import androidx.compose.material.icons.filled.Terrain
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -38,6 +42,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,6 +52,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.example.runlogger.data.TreadmillRun
 import com.example.runlogger.viewmodel.RunViewModel
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -66,7 +72,9 @@ fun AddEditRunScreen(
     // Form state
     var date by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var duration by remember { mutableStateOf(if (isEditing) "" else "30") }
-    var targetHR by remember { mutableStateOf("") }
+    var selectedTargetHR by remember { mutableIntStateOf(140) } // Default to 140 bpm
+    var customHRInput by remember { mutableStateOf("") }
+    var isCustomHR by remember { mutableStateOf(false) }
     var distance by remember { mutableStateOf("") }
     var finalSpeed by remember { mutableStateOf("") }
     var feetClimbed by remember { mutableStateOf("") }
@@ -84,7 +92,18 @@ fun AddEditRunScreen(
         currentRun?.let { run ->
             date = run.date
             duration = run.durationMinutes.toString()
-            targetHR = run.targetHeartRate.toString()
+            // Check if the HR value is a preset, category, or custom
+            val hr = run.targetHeartRate
+            val isPresetOrCategory = TreadmillRun.PRESET_HR_VALUES.contains(hr) || 
+                                      TreadmillRun.isCategory(hr)
+            if (isPresetOrCategory) {
+                selectedTargetHR = hr
+                isCustomHR = false
+            } else {
+                isCustomHR = true
+                customHRInput = hr.toString()
+                selectedTargetHR = hr
+            }
             distance = run.distanceMiles.toString()
             finalSpeed = run.finalMinuteSpeed.toString()
             feetClimbed = run.totalFeetClimbed.toString()
@@ -185,7 +204,7 @@ fun AddEditRunScreen(
                 }
             }
             
-            // Duration & Target HR row
+            // Duration & Target HR/Category row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -198,13 +217,22 @@ fun AddEditRunScreen(
                     suffix = "min",
                     icon = Icons.Default.Schedule
                 )
-                FormField(
+                TargetHRSelector(
                     modifier = Modifier.weight(1f),
-                    value = targetHR,
-                    onValueChange = { targetHR = it.filter { c -> c.isDigit() } },
-                    label = "Target HR",
-                    suffix = "bpm",
-                    icon = Icons.Default.Favorite
+                    selectedValue = selectedTargetHR,
+                    isCustom = isCustomHR,
+                    customInput = customHRInput,
+                    onValueSelected = { value ->
+                        selectedTargetHR = value
+                        isCustomHR = false
+                    },
+                    onCustomSelected = {
+                        isCustomHR = true
+                    },
+                    onCustomInputChange = { input ->
+                        customHRInput = input.filter { c -> c.isDigit() }
+                        customHRInput.toIntOrNull()?.let { selectedTargetHR = it }
+                    }
                 )
             }
             
@@ -264,7 +292,11 @@ fun AddEditRunScreen(
                 onClick = {
                     // Validate and save
                     val durationVal = duration.toIntOrNull() ?: 0
-                    val targetHRVal = targetHR.toIntOrNull() ?: 0
+                    val targetHRVal = if (isCustomHR) {
+                        customHRInput.toIntOrNull() ?: selectedTargetHR
+                    } else {
+                        selectedTargetHR
+                    }
                     val distanceVal = distance.toFloatOrNull() ?: 0f
                     val finalSpeedVal = finalSpeed.toFloatOrNull() ?: 0f
                     val feetClimbedVal = feetClimbed.toIntOrNull() ?: 0
@@ -286,7 +318,7 @@ fun AddEditRunScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
-                enabled = duration.isNotBlank() && targetHR.isNotBlank()
+                enabled = duration.isNotBlank() && (!isCustomHR || customHRInput.isNotBlank())
             ) {
                 Text(
                     text = if (isEditing) "Update Run" else "Save Run",
@@ -325,5 +357,136 @@ private fun FormField(
         ),
         singleLine = true
     )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TargetHRSelector(
+    modifier: Modifier = Modifier,
+    selectedValue: Int,
+    isCustom: Boolean,
+    customInput: String,
+    onValueSelected: (Int) -> Unit,
+    onCustomSelected: () -> Unit,
+    onCustomInputChange: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    
+    // Build dropdown options: Preset HRs + Categories + Custom
+    val presetOptions = TreadmillRun.PRESET_HR_VALUES.map { hr -> hr to "$hr bpm" }
+    val categoryOptions = TreadmillRun.CATEGORY_OPTIONS
+    
+    // Determine display text
+    val displayText = when {
+        isCustom -> if (customInput.isBlank()) "Custom" else "$customInput bpm"
+        else -> TreadmillRun.getDisplayString(selectedValue)
+    }
+    
+    Column(modifier = modifier) {
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { expanded = it }
+        ) {
+            if (isCustom) {
+                // Show text field for custom HR input
+                OutlinedTextField(
+                    value = customInput,
+                    onValueChange = onCustomInputChange,
+                    modifier = Modifier
+                        .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                        .height(76.dp)
+                        .fillMaxWidth(),
+                    label = { Text("Category") },
+                    suffix = { Text("bpm") },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Default.Favorite,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true
+                )
+            } else {
+                // Show dropdown selector
+                OutlinedTextField(
+                    value = displayText,
+                    onValueChange = {},
+                    readOnly = true,
+                    modifier = Modifier
+                        .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                        .height(76.dp)
+                        .fillMaxWidth(),
+                    label = { Text("Category") },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Default.Favorite,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                    singleLine = true
+                )
+            }
+            
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                // Preset HR options
+                presetOptions.forEach { (value, label) ->
+                    DropdownMenuItem(
+                        text = { Text(label) },
+                        onClick = {
+                            onValueSelected(value)
+                            expanded = false
+                        },
+                        contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
+                    )
+                }
+                
+                // Divider-like spacing
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                // Category options
+                categoryOptions.forEach { (value, label) ->
+                    DropdownMenuItem(
+                        text = { 
+                            Text(
+                                text = label,
+                                color = MaterialTheme.colorScheme.secondary
+                            ) 
+                        },
+                        onClick = {
+                            onValueSelected(value)
+                            expanded = false
+                        },
+                        contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
+                    )
+                }
+                
+                // Divider-like spacing
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                // Custom option
+                DropdownMenuItem(
+                    text = { 
+                        Text(
+                            text = "Custom HR...",
+                            color = MaterialTheme.colorScheme.tertiary
+                        ) 
+                    },
+                    onClick = {
+                        onCustomSelected()
+                        expanded = false
+                    },
+                    contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
+                )
+            }
+        }
+    }
 }
 

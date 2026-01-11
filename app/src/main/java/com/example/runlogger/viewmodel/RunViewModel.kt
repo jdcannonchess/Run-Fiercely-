@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -84,6 +85,22 @@ class RunViewModel(application: Application) : AndroidViewModel(application) {
     private val _summaryCustomEndDate = MutableStateFlow(loadCustomEndDate())
     val summaryCustomEndDate: StateFlow<Long?> = _summaryCustomEndDate.asStateFlow()
     
+    // Backup tracking
+    private val _lastBackupDate = MutableStateFlow(loadLastBackupDate())
+    val lastBackupDate: StateFlow<Long?> = _lastBackupDate.asStateFlow()
+    
+    val daysSinceBackup: StateFlow<Int?> = _lastBackupDate.map { lastBackup ->
+        lastBackup?.let {
+            ((System.currentTimeMillis() - it) / (1000 * 60 * 60 * 24)).toInt()
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = loadLastBackupDate()?.let {
+            ((System.currentTimeMillis() - it) / (1000 * 60 * 60 * 24)).toInt()
+        }
+    )
+    
     // Load saved preferences
     private fun loadDatePreset(): DateRangePreset {
         val presetName = prefs.getString("date_preset", DateRangePreset.ALL_TIME.name)
@@ -102,6 +119,18 @@ class RunViewModel(application: Application) : AndroidViewModel(application) {
     private fun loadCustomEndDate(): Long? {
         val value = prefs.getLong("custom_end_date", -1L)
         return if (value == -1L) null else value
+    }
+    
+    private fun loadLastBackupDate(): Long? {
+        val value = prefs.getLong("last_backup_date", -1L)
+        return if (value == -1L) null else value
+    }
+    
+    // Record when a backup is completed
+    fun recordBackup() {
+        val now = System.currentTimeMillis()
+        _lastBackupDate.value = now
+        prefs.edit().putLong("last_backup_date", now).apply()
     }
     
     // Save date range selection

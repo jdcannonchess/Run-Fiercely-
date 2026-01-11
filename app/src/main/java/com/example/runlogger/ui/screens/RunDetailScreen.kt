@@ -179,16 +179,19 @@ fun RunDetailScreen(
                     )
                 }
                 
-                // Row 1: Target HR, Duration, Distance
+                // Row 1: Target HR/Category, Duration, Distance
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    // Show category name or HR value
+                    val isCategory = TreadmillRun.isCategory(run.targetHeartRate)
+                    val categoryName = TreadmillRun.getCategoryName(run.targetHeartRate)
                     CompactStatTile(
                         modifier = Modifier.weight(1f),
-                        value = "${run.targetHeartRate}",
-                        unit = "bpm",
-                        label = "Target HR",
+                        value = categoryName ?: "${run.targetHeartRate}",
+                        unit = if (isCategory) "" else "bpm",
+                        label = if (isCategory) "Category" else "Target HR",
                         isHighlight = true
                     )
                     CompactStatTile(
